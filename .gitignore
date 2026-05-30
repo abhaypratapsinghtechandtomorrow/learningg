@@ -1,0 +1,9 @@
+# ..write gitignore file
+# Ignore log files
+logs/               
+*.log
+
+
+# Ignore node_modules
+node_modules/   
+

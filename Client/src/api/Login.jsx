@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from './apiClient';
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -9,21 +10,37 @@ function Login({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/login`, {
+    // const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/login`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ email, password })
+    // });
+
+
+
+
+
+
+
+
+
+    // Send login request to backend (token is set via httpOnly cookie)
+    const response = await fetch(apiUrl('/api/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // 🚀 Tell fetch to pass the cookie along behind the scenes
       body: JSON.stringify({ email, password })
     });
 
     const data = await response.json();
 
     if (response.ok) {
-      // Stay logged in mechanics:
-      localStorage.setItem('token', data.token);
+      // Backend sets httpOnly cookie; keep minimal info client-side
       localStorage.setItem('userEmail', data.email);
-      
-      onLogin({ email: data.email }); // Update App State
-      navigate('/');                 // Redirect to Home
+      localStorage.setItem('userRole', data.role || 'user');
+
+      onLogin({ email: data.email, role: data.role }); // Update App State
+      navigate('/'); // Redirect to Home
     } else {
       alert(data.error || "Login Failed");
     }

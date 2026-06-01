@@ -1,153 +1,72 @@
-// // routes/blogRoutes.js anyone can add blogs to the database using this route, but we will remove the post route later when we have a proper admin panel for adding blogs. For now, it's just a placeholder to test data insertion into the database.
-// import express from 'express';
-// import Blog from '../models/Blog.js';
-
-// const router = express.Router();
-
-// // GET all blogs
-// router.get('/', async (req, res) => {
-//   try {
-//     const blogs = await Blog.find().sort({ createdAt: -1 }); // Newest blogs first
-//     res.json(blogs);
-//   } catch (error) {
-//     res.status(500).json({ error: "Failed to fetch blogs" });
-//   }
-// });
-
-// // POST a new blog (Placeholder route for testing data insertion)
-// router.post('/', async (req, res) => {
-//   try {
-//     const { title, content, imageUrl } = req.body;
-//     const newBlog = new Blog({ title, content, imageUrl });
-//     await newBlog.save();
-//     res.status(201).json({ message: "Blog created successfully!", blog: newBlog });
-//   } catch (error) {
-//     res.status(400).json({ error: "Failed to create blog" });
-//   }
-// });
-
-// export default router;
-
-
-
-
-
-
-
-
-
-
-
-
-
-// only admin can add blogs to the database using this route, but we will remove the post route later when we have a proper admin panel for adding blogs. For now, it's just a placeholder to test data insertion into the database.
-
-
 // routes/blogRoutes.js
-// import express from 'express';
-// import jwt from 'jsonwebtoken';
-// import Blog from '../models/Blog.js';
-// import User from '../models/User.js';
-// import dotenv from 'dotenv';
-// dotenv.config();
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import Blog from '../models/Blog.js';
+import User from '../models/User.js';
 
-// const router = express.Router();
+const router = express.Router();
 
-// // 🔒 ADMIN AUTHENTICATION MIDDLEWARE
-// const isAdmin = async (req, res, next) => {
-//   try {
-//     // 1. Grab token from headers
-//     const authHeader = req.headers.authorization;
-//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-//       return res.status(401).json({ error: "Access denied. No token provided." });
-//     }
-
-//     const token = authHeader.split(' ')[1];
-
-//     // 2. Verify token validity
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-//     // 3. Find user in DB and verify if they are the admin
-//     const user = await User.findById(decoded.userId);
-    
-//     // CRITICAL CONTROL: Hardcode your admin email designation here
-//     if (user && user.email ===process.env.ADMIN_EMAIL) { 
-//       req.user = user;
-//       next(); // User is Admin! Proceed to the route handler
-//     } else {
-//       res.status(403).json({ error: "Access forbidden. Admins only." });
-//     }
-//   } catch (error) {
-//     res.status(401).json({ error: "Invalid or expired token." });
-//   }
-// };
-
-// // GET all blogs (Publicly accessible to everyone)
-// router.get('/', async (req, res) => {
-//   try {
-//     const blogs = await Blog.find().sort({ createdAt: -1 });
-//     res.json(blogs);
-//   } catch (error) {
-//     res.status(500).json({ error: "Failed to fetch blogs" });
-//   }
-// });
-
-// // POST a new blog (🔒 PROTECTED: Passing isAdmin middleware here)
-// router.post('/', isAdmin, async (req, res) => {
-//   try {
-//     const { title, content, imageUrl } = req.body;
-//     const newBlog = new Blog({ title, content, imageUrl });
-//     await newBlog.save();
-//     res.status(201).json({ message: "Blog created successfully!", blog: newBlog });
-//   } catch (error) {
-//     res.status(400).json({ error: "Failed to create blog" });
-//   }
-// });
-
-// export default router;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//industry satanerd
-
-
-// Inside your routes files: Replacing the old isAdmin middleware
+// 🔒 INDUSTRY STANDARD: ADMIN AUTHORIZATION MIDDLEWARE
 const isAdmin = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: "Access denied. No token provided." });
+    // 🚀 Extract token directly from HTTP-Only cookie jar
+    const token = req.cookies.token; 
+
+    if (!token) {
+      return res.status(401).json({ error: "Access denied. No active session found." });
     }
 
-    const token = authHeader.split(' ')[1];
+    // Verify token validity against your server environment signature
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Fetch the user from the database using the ID packed inside the token
+    // Query MongoDB using the payload ID
     const user = await User.findById(decoded.userId);
     
     if (!user) {
       return res.status(404).json({ error: "User profile not found." });
     }
 
-    // 🌟 INDUSTRY STANDARD: Validate the dynamic database role attribute
+    // Check dynamic schema role attribute instead of hardcoded strings
     if (user.role === 'admin') {
-      req.user = user; // Pass user data to the next function route
-      next(); 
+      req.user = user; 
+      next(); // Passed verification! Moving to the next route controller handler
     } else {
-      res.status(403).json({ error: "Access forbidden. Requires Administrative permissions." });
+      return res.status(403).json({ error: "Access forbidden. Requires Administrative permissions." });
     }
   } catch (error) {
-    res.status(401).json({ error: "Invalid or expired session token." });
+    return res.status(401).json({ error: "Session expired or invalid token structure." });
   }
 };
+
+// ──────────────────────────────────────────────────────────────────
+// API ROUTES
+// ──────────────────────────────────────────────────────────────────
+
+// 1. GET ALL BLOGS (🌐 Public: Anyone can see content layout)
+// Endpoint maps to: GET http://localhost:5000/api/blogs
+router.get('/', async (req, res) => {
+  try {
+    const blogs = await Blog.find().sort({ createdAt: -1 }); // Newest content shows up first
+    res.json(blogs);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch blogs index registry" });
+  }
+});
+
+// 2. CREATE NEW BLOG (🔒 PROTECTED: Gated behind the secure cookie middleware)
+// Endpoint maps to: POST http://localhost:5000/api/blogs
+router.post('/', isAdmin, async (req, res) => {
+  try {
+    const { title, content, imageUrl } = req.body;
+    
+    // Build and commit standard schema layout object
+    const newBlog = new Blog({ title, content, imageUrl });
+    await newBlog.save();
+    
+    res.status(201).json({ message: "Blog created successfully!", blog: newBlog });
+  } catch (error) {
+    res.status(400).json({ error: "Failed to construct new blog entry data structure" });
+  }
+});
+
+export default router;

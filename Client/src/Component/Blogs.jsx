@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiUrl } from '../api/apiClient';
 
 function Blogs() {
   const [blogs, setBlogs] = useState([]);
@@ -6,7 +7,7 @@ function Blogs() {
 
   useEffect(() => {
     // Fetch data from your backend API
-    fetch( `${import.meta.env.VITE_API_BASE_URL}/api/blogs`)
+    fetch(apiUrl('/api/blogs'))
       .then(response => response.json())
       .then(data => {
         setBlogs(data);

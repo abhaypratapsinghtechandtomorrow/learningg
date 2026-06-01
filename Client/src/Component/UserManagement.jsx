@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiUrl } from '../api/apiClient';
 
 function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -8,14 +9,10 @@ function UserManagement() {
   // 1. GET ALL USERS FUNCTION
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('token'); // Retrieve token from login
-      
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users`, {
+      const response = await fetch(apiUrl('/api/users'), {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // 🔑 Passing the credential exactly like Postman
-        }
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
       });
 
       const data = await response.json();
@@ -37,12 +34,9 @@ function UserManagement() {
     if (!window.confirm("Are you sure you want to delete this user permanently?")) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/${userId}`, {
+      const response = await fetch(apiUrl(`/api/users/${userId}`), {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       });
 
       const data = await response.json();

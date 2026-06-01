@@ -10,26 +10,31 @@ const router = express.Router();
 
 // 🔒 ADMIN AUTHENTICATION MIDDLEWARE
 // Restricts endpoints to your specific admin profile credentials
+// Inside your route files: Extracting from req.cookies
 const isAdmin = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: "Access denied. No token provided." });
+    // 🚀 Grab the token seamlessly out of parsed request cookies
+    const token = req.cookies.token; 
+
+    if (!token) {
+      return res.status(401).json({ error: "Access denied. No active session found." });
     }
 
-    const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.userId);
     
-    // Admin verification gate
-    if (user && user.email?.trim().toLowerCase() === process.env.ADMIN_EMAIL) { 
-      req.user = user;
+    if (!user) {
+      return res.status(404).json({ error: "User profile not found." });
+    }
+
+    if (user.role === 'admin') {
+      req.user = user; 
       next(); 
     } else {
-      res.status(403).json({ error: "Access forbidden. Admins only." });
+      res.status(403).json({ error: "Access forbidden. Requires Administrative permissions." });
     }
   } catch (error) {
-    res.status(401).json({ error: "Invalid or expired token." });
+    res.status(401).json({ error: "Session expired or invalid." });
   }
 };
 
@@ -39,11 +44,16 @@ router.post('/signup', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
-    const existingUser = await User.findOne({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) return res.status(409).json({ error: 'Email already exists' });
     
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ email, password: hashedPassword });
+    const newUser = new User({
+      email: normalizedEmail,
+      password: hashedPassword,
+      role: normalizedEmail === process.env.ADMIN_EMAIL?.trim().toLowerCase() ? 'admin' : 'user'
+    });
     await newUser.save();
     
     res.status(201).json({ message: "User registered successfully!", email: newUser.email });
@@ -56,22 +66,44 @@ router.post('/signup', async (req, res) => {
 
 
 
+
+
+
+
 // 2. LOGIN ROUTE (Public)
 // routes/userRoutes.js -> Login Route Update
+// routes/userRoutes.js -> Login Update
+// routes/userRoutes.js -> Login Update
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(400).json({ error: "Invalid email or password" });
     }
 
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    if (adminEmail && normalizedEmail === adminEmail && user.role !== 'admin') {
+      user.role = 'admin';
+      await user.save();
+    }
+
+    // Generate the token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    
-    // 🌟 Added: Send the role back to the client app
+
+    // 🚀 INDUSTRY STANDARD: Send the token inside a secure httpOnly cookie
+    res.cookie('token', token, {
+      httpOnly: true,                 // Prevents client-side JS from reading it (Stops XSS)
+      secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+      sameSite: 'strict',             // Prevents Cross-Site Request Forgery (CSRF)
+      maxAge: 24 * 60 * 60 * 1000     // 1 day expiration matching the JWT lifespan
+    });
+
+    // Send back everything EXCEPT the token in the body response
     res.json({ 
-      token, 
+      message: "Login successful",
       email: user.email, 
       role: user.role 
     });
@@ -80,6 +112,14 @@ router.post('/login', async (req, res) => {
   }
 });
 
+
+
+
+// routes/userRoutes.js -> Add Logout Route
+router.post('/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ message: "Logged out successfully" });
+});
 
 
 

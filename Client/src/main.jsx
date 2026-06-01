@@ -12,6 +12,7 @@ import Blogs from './Component/Blogs';
 import CreateBlog from './Component/CreateBlog';
 import UserManagement from './Component/UserManagement';
 import { Navigate } from 'react-router-dom';
+import { apiUrl } from './api/apiClient';
 
 // This component wraps around any view that only admins should see
 function AdminProtectedRoute({ user, children }) {
@@ -153,10 +154,10 @@ function Layout({ user, onLogout }) {
 function App() {
   const [user, setUser] = useState(() => {
     const savedEmail = localStorage.getItem('userEmail');
-    const token = localStorage.getItem('token');
+    const savedRole = localStorage.getItem('userRole');
 
-    if (savedEmail && token) {
-      return { email: savedEmail };
+    if (savedEmail) {
+      return { email: savedEmail, role: savedRole || 'user' };
     }
 
     return null;
@@ -167,8 +168,12 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Clear server cookie
+    fetch(apiUrl('/api/logout'), { method: 'POST', credentials: 'include' }).catch(() => {});
+
     localStorage.removeItem('token');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
     setUser(null);
   };
 

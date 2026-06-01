@@ -1,6 +1,7 @@
 // src/api/Signup.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from './apiClient';
 
 function Signup({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -11,22 +12,29 @@ function Signup({ onLogin }) {
     e.preventDefault();
     
     // CHANGED: Endpoint switched from /api/login to /api/signup
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/signup`, {
+    const response = await fetch(apiUrl('/api/signup'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // 🚀 Tell fetch to pass the cookie along behind the scenes
       body: JSON.stringify({ email, password })
     });
+
+
+
+
+
+
+
+
+
 
     const data = await response.json();
 
     if (response.ok) {
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-      }
-      localStorage.setItem('userEmail', data.email);
-      
-      onLogin({ email: data.email }); 
-      navigate('/');                 
+      // Server currently returns confirmation + email; no token is issued on signup
+      localStorage.setItem('userEmail', data.email || '');
+      onLogin({ email: data.email });
+      navigate('/');
     } else {
       alert(data.error || "Signup Failed");
     }

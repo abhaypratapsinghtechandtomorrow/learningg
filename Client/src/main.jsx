@@ -46,6 +46,7 @@ function About() {
 
 function Contact() {
   return <h1>📬 Contact Page</h1>;
+  return <h1>📬 Contact Demo Change</h1>;
 }
 
 function NotFound() {
